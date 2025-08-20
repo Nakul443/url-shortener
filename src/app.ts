@@ -94,7 +94,12 @@ app.post('/urls/createShortURL', async (req, res) => {
 // this API will return the views, url and shortened_url
 app.get('/url/performance/:id', async (req: any, res: any) => {
   const id : number = req.params.id; // input received from the user
-  const sql = 'SELECT views, url, shortened_url FROM urls WHERE id = ?';
+  
+  // we want data of number of clicks between startTime and endTime
+  // with all the edge cases handled.
+
+  const sql = 'SELECT COUNT(*) from clicks WHERE id = ? AND startTime >= ? AND endTime <= ?';
+  // this will give us the number of clicks between startTime and endTime
 
   const connection = await getConnection(); // connect database to typescript
   const [results, _] = await connection.execute<any[]>(sql, [id]);
@@ -121,7 +126,7 @@ app.get('/:hash', async (req: any, res: any) => {
   const hash = req.params.hash; // the API will receive input from the user and that can be accessed using 'req.params.hash'
   const connection = await getConnection();
   
-  const sql = 'select url from urls where shortened_url = ?'; // shortened url which is hash, get the corresponding original url
+  const sql = 'select id,url from urls where shortened_url = ?'; // shortened url which is hash, get the corresponding original url
   const [results, _] = await connection.execute<any[]>(sql, [hash]);
   if (results.length === 0) {
     return res.status(404).send('URL NOT FOUND');
@@ -135,6 +140,14 @@ results = [
   }
 ]
 */
+
+  // everytime a user clicks on the shortened url, we need to increment the views count
+  // and add a timestamp to the clicks database
+  const updateClicksSql = 'INSERT INTO clicks (id, timestamp) VALUES (?, NOW())';
+  // NOW() is a MySQL function that returns the current date and time
+  await connection.execute(updateClicksSql, [results[0].id]);
+  // results[0].id is the id of the url in the urls table, which is used to link the clicks to the url
+  // this will insert a new row in the clicks table with the id of the url and the current timestamp
 });
 
 
